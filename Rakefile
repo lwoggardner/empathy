@@ -28,6 +28,6 @@ end
 desc "Run tests"
 task :test => [ :spec, :mspec ]
 
-task :default => [ :test, :package ]
+task :default => [ :test, :build ]
 CLOBBER.include [ "pkg/" ]
 
