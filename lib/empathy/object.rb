@@ -1,16 +1,16 @@
 
-warn "empathy/object: Monkey patching Object#sleep and Object@at_exit for EM::reactor awareness"
+warn "empathy/object: Monkey patching Object#sleep and Object#at_exit for EventMachine reactor awareness"
 
 # Monkey patch object to make EM safe
 class Object
 
-  # use EM safe sleep if we are in the reactor
+  # use {Empathy::EM::Kernel.sleep} if we are in the reactor, Kernel.sleep otherwise
   def sleep(*args)
     kernel = Empathy.event_machine? ? Empathy::EM::Kernel : Kernel
     kernel.sleep(*args)
   end
 
-  # run exit blocks created in the reactor as reactor shutdown hooks
+  # use {Empathy::EM::Kernel.at_exit} if we are in the reactor, Kernel.sleep otherwise
   def at_exit(&block)
     kernel = Empathy.event_machine? ? Empathy::EM::Kernel : Kernel
     kernel.at_exit(&block)

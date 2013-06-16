@@ -1,0 +1,5 @@
+-e ./yard/extensions.rb --markup=markdown --no-private -
+LICENSE.txt
+CHANGES.md
+TESTING.md
+

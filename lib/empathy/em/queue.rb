@@ -1,26 +1,7 @@
 module Empathy
   module EM
+
     # A Empathy equivalent to ::Queue from thread.rb
-    #     queue = Empathy::Queue.new
-    #
-    #     producer = Empathy::Thread.new do
-    #          5.times do |i|
-    #              Empathy::Kernel.sleep rand(i) # simulate expense
-    #              queue << i
-    #              puts "#{i} produced"
-    #          end
-    #      end
-    #
-    #      consumer = Empathy.new do
-    #          5.times do |i|
-    #              value = queue.pop
-    #              Empathy::Kernel.sleep rand(i/2) # simulate expense
-    #              puts "consumed #{value}"
-    #          end
-    #      end
-    #
-    #      consumer.join
-    #
     class Queue
 
       # Creates a new queue
@@ -31,7 +12,8 @@ module Empathy
         @waiting = 0
       end
 
-      # Pushes +obj+ to the queue
+      # @param [Object] obj
+      # @return [void]
       def push(obj)
         @q << obj
         @mutex.synchronize { @cv.signal }
@@ -40,12 +22,8 @@ module Empathy
       alias :enq :push
 
       # Retrieves data from the queue.
-      #
-      #
-      # If the queue is empty, the calling fiber is suspended until data is
-      # pushed onto the queue, unless +non_block+ is true in which case a
-      # +FiberError+ is raised
-      #
+      # @param [Boolean] non_block
+      # @raise FiberError if non_block is true and the queue is empty
       def pop(non_block=false)
         raise FiberError, "queue empty" if non_block && empty?
         if empty?
@@ -59,23 +37,25 @@ module Empathy
       alias :shift :pop
       alias :deq :pop
 
-      # Returns the length of the queue
+      # @return [Fixnum] the length of the queue
       def length
         @q.length
       end
       alias :size :length
 
-      # Returns +true+ if the queue is empty
+      # @return [true] if the queue is empty
+      # @return [false] otherwise
       def empty?
         @q.empty?
       end
 
       # Removes all objects from the queue
+      # @return [void]
       def clear
         @q.clear
       end
 
-      # Returns the number of fibers waiting on the queue
+      # @return [Fixnum] the number of fibers waiting on the queue
       def num_waiting
         @waiting
       end

@@ -2,16 +2,12 @@ require "bundler/gem_tasks"
 
 require 'rspec/core'
 require 'rspec/core/rake_task'
-require 'rdoc/task'
+require 'yard'
 require 'rake/clean'
 
 RSpec::Core::RakeTask.new(:spec)
 
-RDoc::Task.new do |rdoc|
-    rdoc.main = "README.rdoc"
-    rdoc.rdoc_files.include("README.rdoc", "CHANGELOG","lib/**/*.rb")
-    rdoc.title = "Empathy"
-end
+YARD::Rake::YardocTask.new
 
 # Create the test task.
 desc 'Run mspec'
@@ -29,5 +25,6 @@ desc "Run tests"
 task :test => [ :spec, :mspec ]
 
 task :default => [ :test, :build ]
-CLOBBER.include [ "pkg/" ]
+
+CLOBBER.include [ "pkg/","doc/" ]
 

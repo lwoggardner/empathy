@@ -11,7 +11,8 @@ module Empathy
       # Using a mutex for condition variables is meant to protect
       # against race conditions when the signal occurs between testing whether
       # a wait is needed and waiting. This situation will never occur with
-      # fibers, but the semantic is retained
+      # fibers, but the semantic is retained for compatibility with ::ConditionVariable
+      # @return [ConditionVariable] self
       def wait(mutex=nil,timeout = nil)
 
         if timeout.nil? && (mutex.nil? || Numeric === mutex)
@@ -33,6 +34,8 @@ module Empathy
         self
       end
 
+      # Like ::ConditionVariable#signal
+      # @return [ConditionVariable] self
       def signal
         # If there are no waiters, do nothing.
         return self if @waiters.empty?
@@ -45,6 +48,8 @@ module Empathy
         self
       end
 
+      # Like ::ConditionVariable#broadcast
+      # @return [ConditionVariable] self
       def broadcast
         all_waiting = @waiters.dup
         @waiters.clear

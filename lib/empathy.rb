@@ -4,50 +4,43 @@ require 'fiber'
 
 # This module provides a shim between using standard ruby Threads
 # and the thread-like behaviour for Fibers provided by classes in
-# the Empathy::EM module
+# the {Empathy::EM} namespace.
 #
-#   # For the Empathy::EM classes to be available
-#   # you must first load EventMachine
-#   'require eventmachine'
+#     # For the Empathy::EM classes to be available
+#     # you must first load EventMachine
+#     'require eventmachine'
 #
-#   'require empathy'
+#     'require empathy'
 #
-#   t = Empathy::Thread.new() do
-#       begin
-#       # "t" is a standard ::Thread
-#       ...something...
-#   end
+#     t = Empathy::Thread.new() do
+#         # "t" is a standard ::Thread
+#         # ...something...
+#     end
 #
-#   EventMachine.run do
-#      t = Empathy::Thread.new() do
-#           # "t" is a ::Empathy::EM::Thread
-#           # which wraps a ::Fiber
-#      end
-#   end
+#     EventMachine.run do
+#        t = Empathy::Thread.new() do
+#             # "t" is a ::Empathy::EM::Thread
+#             # which wraps a ::Fiber
+#        end
+#     end
 #
-#   # Outside of event machine
-#   t = Empathy::Thread.new() do
-#       # "t" is a raw ::Thread
-#   end
+#     # Outside of event machine
+#     t = Empathy::Thread.new() do
+#         # "t" is a raw ::Thread
+#     end
 #
-# Code using Empathy that may be used in both Fiber or Thread contexts
-# should take care to rescue *Empathy::Errors which is shorthand for
-# *[FiberError,ThreadError]
+#     #Code using Empathy that may be used in both Fiber or Thread contexts
+#     #should take care to rescue Empathy::ThreadError
 #
-#   def maybe_em_method
-#      # some code
-#   rescue *Empathy::Errors
+#     def maybe_em_method
+#        # ...
+#     rescue Empathy::ThreadError
+#        # ...
+#     end
 #
-#   end
-#
-# {::Thread} methods not implemented by Empathy
-#   * #exclusive - not implemented
-#   * #critical - not implemented
-#   * #set_trace_func - not implemented
-#   * #safe_level - not implemented
-#   * #priority - not implemented
 module Empathy
 
+  #This is never thrown but can be used to rescue both ThreadError and FiberError
   class ThreadError < StandardError
     def self.===(other)
       super || ::FiberError === other || ::ThreadError === other
@@ -56,6 +49,7 @@ module Empathy
 
   # Start EventMachine and run reactor block within a surrounding Empathy::EM::Thread (Fiber).
   # The reactor loop is terminated when the supplied block finishes
+  # @return the value of the block
   def self.run
     reload()
     exception = nil
@@ -75,13 +69,19 @@ module Empathy
     value
   end
 
+  # Create alias constants in each of the supplied modules so that code witin those modules
+  # will use modules from the Empathy namespace instaad of the native ruby ones
+  #
+  # Also monkey patches {Object} to provide EM safe Kernel methods
+  # @param [Array<Module>] modules
+  # @return [void]
   def self.empathise(*modules)
     modules.each do |m|
       map_classes(m, self, "Thread","Queue","Mutex","ConditionVariable", "ThreadError")
     end
   end
 
-  #@api private
+  # @private
   def self.map_classes(into,from,*class_names)
     # Make Object reactor aware
     require 'empathy/object'
@@ -94,7 +94,7 @@ module Empathy
       end
     end
   end
-
+private
   def self.replace_class_constant(into,cname,replace_class)
     if into != Object && into.const_defined?(cname,false)
        existing_const = into.const_get(cname)
@@ -107,7 +107,7 @@ module Empathy
     warn "empathy: Defined fake class constant #{into}::#{cname} => #{replace_class.name}"
     into.const_set(cname,replace_class)
   end
-
+public
   # Test whether we have real fibers or a thread based fiber implmentation
   t = Thread.current
   ft = nil
@@ -159,4 +159,5 @@ module Empathy
   create_delegate_module('Queue',:new)
   create_delegate_module('ConditionVariable',:new)
   create_delegate_module('Mutex',:new)
+
 end

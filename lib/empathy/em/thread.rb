@@ -7,6 +7,11 @@ module Empathy
 
   module EM
 
+    # Create alias constants in each of the supplied modules so that code within those modules
+    # will use modules from the Empathy::EM namespace instead of the native ruby ones
+    #
+    # Also monkey patches {Object} to provide EM safe Kernel methods
+    # @return [void]
     def self.empathise(*modules)
       modules.each do |m|
         Empathy::map_classes(m,self,"Thread","Mutex","ConditionVariable","Queue","ThreadError" => FiberError)
@@ -14,7 +19,13 @@ module Empathy
     end
 
     module Kernel
-      # Like ::Kernel::sleep. Woken by an ::EM::Timer in +seconds+ if supplied
+
+      # Like ::Kernel.sleep
+      # @overload sleep()
+      #   Sleep forever
+      # @overload sleep(seconds)
+      #   @param [Numeric] seconds The number of seconds (including fractional seconds) to sleep
+      # @return [Fixnum] rounded number of seconds actually slept, which can be less than specified if woken early
       def self.sleep(seconds=:__empathy_sleep_forever)
 
         ::Kernel.raise TypeError, "seconds #{seconds} must be a number" unless seconds == :__empathy_sleep_forever or seconds.is_a? Numeric
@@ -27,30 +38,49 @@ module Empathy
         (Time.now - n).round()
       end
 
+      # Like ::Kernel.at_exit
+      #
+      # Queues block to run at shutdown of the reactor
+      # @return [void]
       def self.at_exit(&block)
         EventMachine.add_shutdown_hook(&block)
       end
     end
 
-    #Acts like a ::Thread using Fibers and EventMachine
+    # Acts like a ::Thread using Fibers and EventMachine
+    #
+    # {::Thread} methods not implemented by Empathy
+    #
+    #    *  .exclusive - not implemented
+    #    *  #critical - not implemented
+    #    *  #set_trace_func - not implemented
+    #    *  #safe_level - not implemented
+    #    *  #priority - not implemented
+
     class Thread
 
       @@em_threads = {}
 
-      # The underlying fiber.
+      # @return [Fiber] The underlying fiber.
       attr_reader :fiber
 
       # Like ::Thread::list. Return an array of all EM::Threads that are alive.
+      #
+      # @return [Array<Thread>]
       def self.list
         @@em_threads.values.select { |s| s.alive? }
       end
 
+      # Like ::Thread.main
+      #
+      # @return [Thread]
       def self.main
         @@main
       end
 
       # Like ::Thread::current. Get the currently running EM::Thread, eg to access thread local
       # variables
+      # @return [Thread] representing the current Fiber
       def self.current
         @@em_threads[Fiber.current] || ProxyThread.new(Fiber.current)
       end
@@ -68,12 +98,15 @@ module Empathy
 
 
       # Like ::Thread::stop. Sleep forever (until woken)
+      # @return [void]
       def self.stop
         Kernel.sleep()
       end
 
       # Like ::Thread::pass.
-      # The fiber is resumed on the next_tick of EM's event loop
+      # The fiber is paused and resumed on the next_tick of EM's event loop
+      #
+      # @return [nil]
       def self.pass
         em_thread = current
         ::EM.next_tick{ em_thread.__send__(:wake_resume) }
@@ -82,20 +115,27 @@ module Empathy
       end
 
       # Like ::Thread.exit
+      # @return [Thread]
       def self.exit
         current.exit
       end
 
+      # Like ::Thread.kill
+      # @return [Thread]
       def self.kill(thread)
         thread.exit
       end
 
+      # @private
       def self.new(*args,&block)
         instance = super(*args,&block)
         ::Kernel.raise FiberError, "super not called for subclass of Thread" unless instance.instance_variable_defined?("@fiber")
         instance
       end
 
+      # Like ::Thread.start
+      #
+      # @return [Thread]
       def self.start(*args,&block)
         ::Kernel.raise ArgumentError, "no block" unless block_given?
         c = if self != Thread
@@ -106,11 +146,11 @@ module Empathy
               end
             else
               self
-            end 
+            end
         c.new(*args,&block)
       end
 
-      # Create and run 
+      # Like ::Thread#initialize
       def initialize(*args,&block)
 
         ::Kernel.raise FiberError, "no block" unless block_given?
@@ -118,10 +158,8 @@ module Empathy
       end
 
       # Like ::Thread#join.
-      #   s1 = Empathy.new{ Empathy.sleep(1) }
-      #   s2 = Empathy.new{ Empathy.sleep(1) }
-      #   s1.join
-      #   s2.join
+      # @param [Numeric] limit seconds to wait for thread to expire
+      # @return [nil,Thread] nil if timeout expires, otherwise this Thread
       def join(limit = nil)
         @mutex.synchronize { @join_cond.wait(@mutex,limit) } if alive?
         ::Kernel.raise @exception if @exception
@@ -136,16 +174,22 @@ module Empathy
       end
 
       # Like ::Thread#alive? or Fiber#alive?
+      # @return [true,false]
       def alive?
         fiber.alive?
       end
 
-      # Like ::Thread#stop? Always true unless our fiber is the current fiber
+      # Like ::Thread#stop?
+      # @return [false] if called on the current fiber
+      # @return [true] otherwise
       def stop?
         Fiber.current != fiber
       end
 
       # Like ::Thread#status
+      # @return [String]
+      # @return [false]
+      # @return [nil]
       def status
         case @status
         when :run
@@ -165,13 +209,13 @@ module Empathy
       end
 
       # Like ::Thread#value.  Implicitly calls #join.
-      #   em_thread = Empathy.new{ 1+2 }
-      #   em_thread.value # => 3
       def value
         join and @value
       end
 
       # Like ::Thread#exit. Signals thread to wakeup and die
+      #
+      # @return [nil, Thread]
       def exit
         case @status
         when :sleep
@@ -185,6 +229,7 @@ module Empathy
       alias :terminate :exit
 
       # Like ::Thread#wakeup Wakes a sleeping Thread
+      # @return [Thread]
       def wakeup
         ::Kernel.raise FiberError, "dead em_thread" unless status
         wake_resume() 
@@ -192,6 +237,17 @@ module Empathy
       end
 
       # Like ::Thread#raise, raise an exception on a sleeping Thread
+      # @overload raise()
+      #   @raise RuntimeError
+      # @overload raise(string)
+      #   @param [String] string
+      #   @raise RuntimeError
+      # @overload raise(exception,string=nil,array=caller())
+      #   @param [Class,String,Object) exception
+      #   @param [String] string exception message
+      #   @param [Array<String>] array caller information
+      #   @raise Exception
+      # @return [void]
       def raise(*args)
         args << RuntimeError if args.empty?
         if fiber == Fiber.current
@@ -207,43 +263,41 @@ module Empathy
 
 
       # Access to "fiber local" variables, akin to "thread local" variables.
-      #   Empathy.new do
-      #     ...
-      #     Empathy.current[:connection].send(data)
-      #     ...
-      #   end
+      # @param [Symbol] name
+      # @return [Object,nil]
       def [](name)
         ::Kernel.raise TypeError, "name #{name} must convert to_sym" unless name and name.respond_to?(:to_sym)
         @locals[name.to_sym]
       end
 
       # Access to "fiber local" variables, akin to "thread local" variables.
-      #   Empathy.new do
-      #     ...
-      #     Empathy.current[:connection] = SomeConnectionClass.new(host, port)
-      #     ...
-      #   end
       def []=(name, value)
         ::Kernel.raise TypeError, "name #{name} must convert to_sym" unless name and name.respond_to?(:to_sym)
         @locals[name.to_sym] = value
       end
 
       # Like ::Thread#key? Is there a "fiber local" variable defined called +name+
+      # @param [Symbol] name
+      # @return [true,false]
       def key?(name)
         ::Kernel.raise TypeError, "name #{name} must convert to_sym" unless name and name.respond_to?(:to_sym)
         @locals.has_key?(name.to_sym)
       end
 
       # Like ::Thread#keys The set of "em_thread local" variable keys
+      # @return [Array<Symbol>]
       def keys()
         @locals.keys
       end
 
-      def inspect #:nodoc:
+      # Like ::Thread#inspect
+      # @return [String]
+      def inspect
         "#<Empathy::EM::Thread:0x%s %s %s" % [object_id, @fiber == Fiber.current ? "run" : "yielded", status || "dead" ]
       end
 
       # Do something when the fiber completes.
+      # @return [void]
       def ensure_hook(key,&block)
         if block_given? then 
           @ensure_hooks[key] = block

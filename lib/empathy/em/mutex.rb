@@ -1,11 +1,15 @@
 module Empathy
   module EM
+
+    # An Empathy equivalen to ::MUtex
     class Mutex
 
       def initialize()
         @waiters = []
       end
 
+      # Like ::Mutex#lock
+      # @return [Mutex] self
       def lock()
         em_thread = Thread.current
         @waiters << em_thread
@@ -16,16 +20,24 @@ module Empathy
         self
       end
 
+      # Like ::Mutex#unlock
+      # @return [Mutex] self
+      # @raise [FiberError] if not owner of the mutex
       def unlock()
         em_thread = Thread.current
         raise FiberError, "not owner" unless @waiters.first == em_thread
         release()
+        self
       end
 
+      # Like ::Mutex#locked?
+      # @return [true,false]
       def locked?
         !@waiters.empty? && @waiters.first.alive?
       end
 
+      # Like ::Mutex#try_lock
+      # @return [true,false]
       def try_lock
         if locked?
           false
@@ -35,6 +47,8 @@ module Empathy
         end
       end
 
+      # Like ::Mutex#synchronize
+      # @return the result of the block
       def synchronize(&block)
         lock
         yield
@@ -42,6 +56,9 @@ module Empathy
         unlock
       end
 
+      # Like ::Mutex#sleep
+      # @param [Numeric] timeout
+      # @return [Fixnum]
       def sleep(timeout=nil)
         unlock
         begin
