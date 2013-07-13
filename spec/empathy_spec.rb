@@ -69,6 +69,11 @@ describe Empathy do
       Empathy::Kernel.singleton_methods.should include(:sleep)
     end
 
+    it "delegates Monitor" do
+      m = Empathy::Monitor.new()
+      m.should be_kind_of(monitor_class)
+    end
+
     it "rescues errors" do
       lambda do
         begin
@@ -90,9 +95,9 @@ describe Empathy do
     let (:condition_variable_class) { Empathy::EM::ConditionVariable }
     let (:mutex_class) { Empathy::EM::Mutex }
     let (:error_class) { ::FiberError }
+    let (:monitor_class) { Empathy::EM::Monitor }
 
     it "delegates to Empathy::EM classes" do
-      Empathy.run do
         Empathy.event_machine?.should be_true
         t = Empathy::EmTest.new
         t.should be_kind_of(Empathy::EM::EmTest)
@@ -100,7 +105,6 @@ describe Empathy do
         Empathy::EmTest.test_class_method.should == :em_test_class_method
         Empathy::EmTest.test_class_method(:em_hello).should == :em_hello
         Empathy::EmTest.test_class_method() { :em_with_block }.should == :em_with_block
-      end
     end
 
     include_examples "empathy_delegation"
@@ -112,6 +116,7 @@ describe Empathy do
     let (:condition_variable_class) { ::ConditionVariable }
     let (:mutex_class) { ::Mutex }
     let (:error_class) { ::ThreadError }
+    let (:monitor_class) { ::Monitor }
 
     it "delegate to ruby top level classes" do
       EventMachine.reactor_running?.should be_false

@@ -2,10 +2,15 @@ require "fiber"
 require "eventmachine"
 require 'empathy/em/mutex'
 require 'empathy/em/condition_variable'
+require 'empathy/em/queue'
 
 module Empathy
 
   module EM
+
+    @empathised = self
+    # Thread like errors are actually raw Fiber errors
+    ThreadError = ::FiberError
 
     # Create alias constants in each of the supplied modules so that code within those modules
     # will use modules from the Empathy::EM namespace instead of the native ruby ones
@@ -14,7 +19,7 @@ module Empathy
     # @return [void]
     def self.empathise(*modules)
       modules.each do |m|
-        Empathy::map_classes(m,self,"Thread","Mutex","ConditionVariable","Queue","ThreadError" => FiberError)
+        Empathy::map_classes(m,self)
       end
     end
 
@@ -45,6 +50,7 @@ module Empathy
       def self.at_exit(&block)
         EventMachine.add_shutdown_hook(&block)
       end
+
     end
 
     # Acts like a ::Thread using Fibers and EventMachine
@@ -129,7 +135,7 @@ module Empathy
       # @private
       def self.new(*args,&block)
         instance = super(*args,&block)
-        ::Kernel.raise FiberError, "super not called for subclass of Thread" unless instance.instance_variable_defined?("@fiber")
+        ::Kernel.raise ThreadError, "super not called for subclass of Thread" unless instance.instance_variable_defined?("@fiber")
         instance
       end
 
@@ -153,7 +159,7 @@ module Empathy
       # Like ::Thread#initialize
       def initialize(*args,&block)
 
-        ::Kernel.raise FiberError, "no block" unless block_given?
+        ::Kernel.raise ThreadError, "no block" unless block_given?
         initialize_fiber(*args,&block)
       end
 
@@ -231,8 +237,8 @@ module Empathy
       # Like ::Thread#wakeup Wakes a sleeping Thread
       # @return [Thread]
       def wakeup
-        ::Kernel.raise FiberError, "dead em_thread" unless status
-        wake_resume() 
+        ::Kernel.raise ThreadError, "dead em_thread" unless status
+        wake_resume()
         self
       end
 
@@ -299,7 +305,7 @@ module Empathy
       # Do something when the fiber completes.
       # @return [void]
       def ensure_hook(key,&block)
-        if block_given? then 
+        if block_given? then
           @ensure_hooks[key] = block
         else
           @ensure_hooks.delete(key)
@@ -340,7 +346,7 @@ module Empathy
       private
 
       def initialize_fiber(*args,&block)
-        ::Kernel.raise FiberError, "already initialized" if @fiber
+        ::Kernel.raise ThreadError, "already initialized" if @fiber
         # Create our fiber.
         fiber = Fiber.new{ fiber_body(*args,&block) }
 

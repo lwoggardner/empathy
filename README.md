@@ -33,7 +33,7 @@ Empathic Threads
       thread.value # => 3
     end
 
-Almost all Thread behaviour is provided except that one thread will never see another as "running". Where ruby's thread API raises ThreadError, Empathy::EM will raise FiberError.
+Almost all Thread behaviour is provided except that one thread will never see another as "running". Where ruby's thread API raises ThreadError, Empathy::EM will raise FiberError (which is also available as {Empathy::EM::ThreadError})
 
 Empathic code outside of the EventMachine reactor
 --------------------------------------------------
@@ -74,7 +74,7 @@ Empathise with all ruby code
 Seamlessly Replace Ruby's native classes with the Empathy:EM ones (redefines top level constants), plus monkey patching of
 {Object#sleep} and {Object#at_exit}
 
-    require 'empathy/thread'
+    require 'empathy/with_all_of_ruby'
     # do not run any code that uses threads outside of the reactor after the above require
 
     Empathy.run do
@@ -97,7 +97,6 @@ Seamlessly Replace Ruby's native classes with the Empathy:EM ones (redefines top
 
 Empathise a library module
 ----------------------------------
-
 
     module MyLibary
        def create_thread

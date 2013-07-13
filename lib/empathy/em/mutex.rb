@@ -1,14 +1,14 @@
 module Empathy
   module EM
 
-    # An Empathy equivalen to ::MUtex
+    # An Empathy equivalent to ::Mutex
     class Mutex
 
       def initialize()
         @waiters = []
       end
 
-      # Like ::Mutex#lock
+      # Like ::Mutex#lock, except allows reentrant locks
       # @return [Mutex] self
       def lock()
         em_thread = Thread.current

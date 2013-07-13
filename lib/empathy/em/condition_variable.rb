@@ -21,15 +21,15 @@ module Empathy
         end
 
         # Get the fiber (Empathy::EM::Thread) that called us.
-        empathy = Thread.current
+        thread = Thread.current
         # Add the fiber to the list of waiters.
-        @waiters << empathy
+        @waiters << thread
         begin
           sleeper = mutex ? mutex : Kernel
           if timeout then sleeper.sleep(timeout) else sleeper.sleep() end
         ensure
-          # Remove from list of waiters.
-          @waiters.delete(empathy)
+          # Remove from list of waiters. Note this doesn't run if the thread is killed
+          @waiters.delete(thread)
         end
         self
       end
@@ -37,14 +37,16 @@ module Empathy
       # Like ::ConditionVariable#signal
       # @return [ConditionVariable] self
       def signal
-        # If there are no waiters, do nothing.
-        return self if @waiters.empty?
 
-        # Find a waiter to wake up.
-        waiter = @waiters.shift
+        # Find a waiter to wake up
+        until @waiters.empty?
+           waiter = @waiters.shift
+           if waiter.alive?
+             ::EM.next_tick{ waiter.wakeup if waiter.alive? }
+             break;
+           end
+        end
 
-        # Resume it on next tick.
-        ::EM.next_tick{ waiter.wakeup }
         self
       end
 

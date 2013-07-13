@@ -1,4 +1,4 @@
-require 'empathy/thread'
+require 'empathy/with_all_of_ruby'
 require 'mspec'
 require 'mspec/guards/empathy'
 module MSpec
