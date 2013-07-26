@@ -16,8 +16,6 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.licenses      = %q{MIT}
 
-  gem.has_rdoc      = :yard
-
   # Empathy can be used without eventmachine
   gem.add_development_dependency 'eventmachine', '~> 1.0.0'
 
