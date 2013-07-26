@@ -19,6 +19,7 @@ Gem::Specification.new do |gem|
   # Empathy can be used without eventmachine
   gem.add_development_dependency 'eventmachine', '~> 1.0.0'
 
+  gem.add_development_dependency 'rake'
   gem.add_development_dependency 'mspec', '>= 1.5.18'
   gem.add_development_dependency 'rspec'
   gem.add_development_dependency 'rr'
