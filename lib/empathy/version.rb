@@ -1,3 +1,3 @@
 module Empathy
-  VERSION = "0.0.1.RC2"
+  VERSION = "0.1.0"
 end
